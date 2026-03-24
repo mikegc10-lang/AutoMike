@@ -977,8 +977,9 @@ h1,h2,h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
 <script>
 // ========== SUPABASE ==========
 const SUPABASE_URL = 'https://vcmwquctkynynhmgbihf.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjbXdxdWN0a3lueW5obWdiaWhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzODI2NzgsImV4cCI6MjA4ODk1ODY3OH0.HlzvU0N6j8iv7kTe_CyuYJYBZoXJxDAXbvgknah_YKY'
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+const SUPABASE_KEY = 'sb_publishable_N3l22C1qFFUVXdLDBrVfQg_93dK80AU'
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 // ========== AUTH ==========
 async function handleLogin() {
   const email = document.getElementById('login-email').value.trim()
