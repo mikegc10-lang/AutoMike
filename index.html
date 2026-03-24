@@ -56,12 +56,6 @@ body {
 }
 
 h1,h2,h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
-<!-- ==================== AUTH PAGE ==================== -->
-<div id="auth-page" style="position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;">
-  <div style="width:100%;max-width:400px;">
-
-    <div style="text-align:center;margin-bottom:32px;">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:600;color:var(--accent);">Agenda<span style="color:var(--gold);">Pro</span></div>
       <div style="font-size:13px;color:var(--text3);margin-top:6px;">Tu clínica en un solo lugar</div>
     </div>
 
@@ -468,6 +462,63 @@ h1,h2,h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
 </style>
 </head>
 <body>
+
+<!-- ==================== AUTH PAGE ==================== -->
+<div id="auth-page" style="position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;">
+  <div style="width:100%;max-width:400px;">
+
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:600;color:var(--accent);">Agenda<span style="color:var(--gold);">Pro</span></div>
+      <div style="font-size:13px;color:var(--text3);margin-top:6px;">Tu cl\u00ednica en un solo lugar</div>
+    </div>
+
+    <!-- TABS -->
+    <div style="display:flex;background:var(--surface2);border-radius:12px;padding:4px;margin-bottom:24px;">
+      <button id="tab-login" onclick="switchAuthTab('login')" style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--surface);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;">Ingresar</button>
+      <button id="tab-register" onclick="switchAuthTab('register')" style="flex:1;padding:10px;border-radius:10px;border:none;background:transparent;color:var(--text3);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">Registrarse</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="auth-login">
+      <div class="form-group">
+        <label class="form-label">Correo electr\u00f3nico</label>
+        <input type="email" class="form-input" id="login-email" placeholder="tu@correo.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contrase\u00f1a</label>
+        <input type="password" class="form-input" id="login-password" placeholder="\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7">
+      </div>
+      <button onclick="handleLogin()" class="btn-next" style="width:100%;margin-top:8px;">Ingresar</button>
+      <button onclick="handleForgotPassword()" style="width:100%;margin-top:12px;background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;">Olv\u00edd\u00e9 mi contrase\u00f1a</button>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="auth-register" style="display:none;">
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input type="text" class="form-input" id="reg-nombre" placeholder="Tu nombre">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Apellido paterno</label>
+        <input type="text" class="form-input" id="reg-apellido" placeholder="Tu apellido">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre de usuario</label>
+        <input type="text" class="form-input" id="reg-usuario" placeholder="@usuario">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Correo electr\u00f3nico</label>
+        <input type="email" class="form-input" id="reg-email" placeholder="tu@correo.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contrase\u00f1a</label>
+        <input type="password" class="form-input" id="reg-password" placeholder="M\u00ednimo 6 caracteres">
+      </div>
+      <button onclick="handleRegister()" class="btn-next" style="width:100%;margin-top:8px;">Crear cuenta</button>
+    </div>
+
+  </div>
+</div>
 
 <!-- TOP BAR -->
 <div class="topbar">
@@ -926,9 +977,8 @@ h1,h2,h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
 <script>
 // ========== SUPABASE ==========
 const SUPABASE_URL = 'https://vcmwquctkynynhmgbiht.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjbXdxdWN0a3lueW5obWdiaWhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzODI2NzgsImV4cCI6MjA4ODk1ODY3OH0.HlzvU0N6j8iv7kTe_CyuYJYBZoXJxDAXbvgknah_YKY  '
-const { createClient } = supabase
-const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjbXdxdWN0a3lueW5obWdiaWh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzODI2NzgsImV4cCI6MjA4ODk1ODY3OH0.HlzvU0N6j8iv7kTe_CyuYJYBZoXJxDAXbvgknah_YKY'
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 // ========== AUTH ==========
 async function handleLogin() {
   const email = document.getElementById('login-email').value.trim()
@@ -985,17 +1035,7 @@ function switchAuthTab(tab) {
 }
 
 // Verificar si ya hay sesión activa al cargar
-window.addEventListener('load', () => {
-  db.auth.onAuthStateChange((event, session) => {
-    const authPage = document.getElementById('auth-page')
-    if (!authPage) return
-    if (session) {
-      authPage.style.display = 'none'
-    } else {
-      authPage.style.display = 'flex'
-    }
-  })
-})
+db.auth.onAuthStateChange((event, session) => {
   if (session) {
     document.getElementById('auth-page').style.display = 'none'
   } else {
