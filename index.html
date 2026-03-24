@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agenda Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -55,7 +56,62 @@ body {
 }
 
 h1,h2,h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
+<!-- ==================== AUTH PAGE ==================== -->
+<div id="auth-page" style="position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;">
+  <div style="width:100%;max-width:400px;">
 
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:600;color:var(--accent);">Agenda<span style="color:var(--gold);">Pro</span></div>
+      <div style="font-size:13px;color:var(--text3);margin-top:6px;">Tu clínica en un solo lugar</div>
+    </div>
+
+    <!-- TABS -->
+    <div style="display:flex;background:var(--surface2);border-radius:12px;padding:4px;margin-bottom:24px;">
+      <button id="tab-login" onclick="switchAuthTab('login')" style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--surface);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;">Ingresar</button>
+      <button id="tab-register" onclick="switchAuthTab('register')" style="flex:1;padding:10px;border-radius:10px;border:none;background:transparent;color:var(--text3);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">Registrarse</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="auth-login">
+      <div class="form-group">
+        <label class="form-label">Correo electrónico</label>
+        <input type="email" class="form-input" id="login-email" placeholder="tu@correo.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input type="password" class="form-input" id="login-password" placeholder="••••••••">
+      </div>
+      <button onclick="handleLogin()" class="btn-next" style="width:100%;margin-top:8px;">Ingresar</button>
+      <button onclick="handleForgotPassword()" style="width:100%;margin-top:12px;background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;">Olvidé mi contraseña</button>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="auth-register" style="display:none;">
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input type="text" class="form-input" id="reg-nombre" placeholder="Tu nombre">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Apellido paterno</label>
+        <input type="text" class="form-input" id="reg-apellido" placeholder="Tu apellido">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre de usuario</label>
+        <input type="text" class="form-input" id="reg-usuario" placeholder="@usuario">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Correo electrónico</label>
+        <input type="email" class="form-input" id="reg-email" placeholder="tu@correo.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input type="password" class="form-input" id="reg-password" placeholder="Mínimo 6 caracteres">
+      </div>
+      <button onclick="handleRegister()" class="btn-next" style="width:100%;margin-top:8px;">Crear cuenta</button>
+    </div>
+
+  </div>
+</div>
 /* TOP BAR */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -868,6 +924,73 @@ h1,h2,h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
 </div>
 
 <script>
+// ========== SUPABASE ==========
+const SUPABASE_URL = 'sb_publishable_N3l22C1qFFUVXdLDBrVfQg_93dK80AU'
+const SUPABASE_KEY = 'sb_secret_evClwm7p0r-d4A4S3MMXMg_SVg5uFbi'
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+// ========== AUTH ==========
+async function handleLogin() {
+  const email = document.getElementById('login-email').value.trim()
+  const password = document.getElementById('login-password').value
+  if (!email || !password) { showToast('Ingresa correo y contraseña'); return }
+
+  const { error } = await db.auth.signInWithPassword({ email, password })
+  if (error) { showToast('Error: ' + error.message); return }
+  showToast('¡Bienvenido!')
+  document.getElementById('auth-page').style.display = 'none'
+}
+
+async function handleRegister() {
+  const nombre   = document.getElementById('reg-nombre').value.trim()
+  const apellido = document.getElementById('reg-apellido').value.trim()
+  const usuario  = document.getElementById('reg-usuario').value.trim()
+  const email    = document.getElementById('reg-email').value.trim()
+  const password = document.getElementById('reg-password').value
+
+  if (!nombre || !apellido || !usuario || !email || !password) { showToast('Completa todos los campos'); return }
+  if (password.length < 6) { showToast('La contraseña debe tener mínimo 6 caracteres'); return }
+
+  const { error } = await db.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        tipo: 'paciente',
+        nombre,
+        apellido_paterno: apellido,
+        nombre_usuario: usuario
+      }
+    }
+  })
+  if (error) { showToast('Error: ' + error.message); return }
+  showToast('✅ Cuenta creada, revisa tu correo para confirmar')
+}
+
+async function handleForgotPassword() {
+  const email = document.getElementById('login-email').value.trim()
+  if (!email) { showToast('Ingresa tu correo primero'); return }
+  const { error } = await db.auth.resetPasswordForEmail(email)
+  if (error) { showToast('Error: ' + error.message); return }
+  showToast('📧 Revisa tu correo para restablecer tu contraseña')
+}
+
+function switchAuthTab(tab) {
+  document.getElementById('auth-login').style.display    = tab === 'login'    ? 'block' : 'none'
+  document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none'
+  document.getElementById('tab-login').style.background    = tab === 'login'    ? 'var(--surface)' : 'transparent'
+  document.getElementById('tab-register').style.background = tab === 'register' ? 'var(--surface)' : 'transparent'
+  document.getElementById('tab-login').style.color    = tab === 'login'    ? 'var(--accent)' : 'var(--text3)'
+  document.getElementById('tab-register').style.color = tab === 'register' ? 'var(--accent)' : 'var(--text3)'
+}
+
+// Verificar si ya hay sesión activa al cargar
+db.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    document.getElementById('auth-page').style.display = 'none'
+  } else {
+    document.getElementById('auth-page').style.display = 'flex'
+  }
+})
 // ========== STATE ==========
 let currentPage = 'home';
 let darkMode = false;
