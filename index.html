@@ -985,7 +985,17 @@ function switchAuthTab(tab) {
 }
 
 // Verificar si ya hay sesión activa al cargar
-db.auth.onAuthStateChange((event, session) => {
+window.addEventListener('load', () => {
+  db.auth.onAuthStateChange((event, session) => {
+    const authPage = document.getElementById('auth-page')
+    if (!authPage) return
+    if (session) {
+      authPage.style.display = 'none'
+    } else {
+      authPage.style.display = 'flex'
+    }
+  })
+})
   if (session) {
     document.getElementById('auth-page').style.display = 'none'
   } else {
