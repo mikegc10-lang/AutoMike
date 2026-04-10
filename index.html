@@ -992,6 +992,15 @@ function renderPerfil() {
   document.getElementById('perfil-amaterno').textContent = p.amaterno || '—'
   document.getElementById('perfil-telefono').textContent = p.telefono || '—'
   document.getElementById('perfil-correo').textContent   = p.correo   || '—'
+  if (p.nacimiento) {
+    const hoy = new Date()
+    const nac = new Date(p.nacimiento)
+    let edad = hoy.getFullYear() - nac.getFullYear()
+    if (hoy.getMonth() < nac.getMonth() || (hoy.getMonth() === nac.getMonth() && hoy.getDate() < nac.getDate())) edad--
+    document.getElementById('perfil-edad').textContent = edad + ' años'
+  } else {
+    document.getElementById('perfil-edad').textContent = '—'
+  }
   const foto = localStorage.getItem('perfilFoto')
   const img  = document.getElementById('perfil-foto-img')
   const ini  = document.getElementById('perfil-iniciales')
@@ -1022,6 +1031,7 @@ function abrirEditarPerfil() {
   document.getElementById('ep-apaterno').value = p.apaterno || ''
   document.getElementById('ep-amaterno').value = p.amaterno || ''
   document.getElementById('ep-telefono').value = p.telefono || ''
+  document.getElementById('ep-nacimiento').value = p.nacimiento || ''
   document.getElementById('ep-correo').value   = p.correo   || ''
   // Mostrar foto actual en el modal
   const foto = localStorage.getItem('perfilFoto')
@@ -1063,8 +1073,9 @@ function guardarPerfil() {
     nombre,
     apaterno: document.getElementById('ep-apaterno').value.trim(),
     amaterno: document.getElementById('ep-amaterno').value.trim(),
-    telefono: document.getElementById('ep-telefono').value.trim(),
-    correo:   document.getElementById('ep-correo').value.trim(),
+    telefono:   document.getElementById('ep-telefono').value.trim(),
+    nacimiento: document.getElementById('ep-nacimiento').value,
+    correo:     document.getElementById('ep-correo').value.trim(),
   }
   localStorage.setItem('perfilDatos', JSON.stringify(p))
   renderPerfil()
@@ -1155,6 +1166,7 @@ window.addEventListener('load', () => { renderPerfil() })
       </div>
       <div class="form-group"><label class="form-label">Ap. materno</label><input type="text" class="form-input" id="ep-amaterno" placeholder="Apellido materno" maxlength="15"></div>
       <div class="form-group"><label class="form-label">Teléfono</label><input type="tel" class="form-input" id="ep-telefono" placeholder="55 0000 0000" maxlength="15"></div>
+      <div class="form-group"><label class="form-label">Fecha de nacimiento</label><input type="date" class="form-input" id="ep-nacimiento"></div>
       <div class="form-group"><label class="form-label">Correo electrónico</label><input type="email" class="form-input" id="ep-correo" placeholder="tu@correo.com"></div>
       <button onclick="guardarPerfil()" class="btn-next" style="width:100%;margin-top:8px;">Guardar cambios</button>
     </div>
