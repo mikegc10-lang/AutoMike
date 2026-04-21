@@ -1027,7 +1027,7 @@ function renderFormCal() {
   for (let i = 0; i < firstDay; i++) html += '<button class="cal-day" disabled></button>'
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
-    const isPast = new Date(dateStr) < new Date(today.toDateString())
+    const isPast <= new Date(dateStr) < new Date(today.toDateString())
     const isSel = formData.date === dateStr
     const ocup = ocupacionMes[dateStr]
     let availClass = 'avail-gray'  // sin datos = gris por default
