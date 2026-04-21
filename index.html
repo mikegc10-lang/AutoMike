@@ -204,6 +204,7 @@ h1,h2,h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
 .cal-day.avail-yellow { background: rgba(200,160,0,0.14); }
 .cal-day.avail-orange { background: rgba(200,100,20,0.14); }
 .cal-day.avail-red { background: rgba(200,40,40,0.12); }
+.cal-day.avail-gray { background: rgba(150,150,150,0.12); color: var(--text3); }
 .cal-day.selected-day { background: var(--accent) !important; color: white !important; font-weight: 600; }
 .cal-legend { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .cal-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
@@ -582,6 +583,7 @@ h1,h2,h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
           <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(200,160,0,0.5)"></div>Regular</div>
           <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(200,100,20,0.5)"></div>Poca disp.</div>
           <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(200,40,40,0.4)"></div>Sin disp.</div>
+          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(150,150,150,0.3)"></div>Sin horario</div>
         </div>
         <div id="time-section" style="display:none">
           <label class="form-label" style="margin-bottom:8px;display:block;">Horarios disponibles</label>
@@ -779,15 +781,31 @@ async function cargarCitas() {
  
 // ========== CARGAR OCUPACIÓN DEL MES ==========
 async function cargarOcupacionMes(anio, mes) {
-  const { data, error } = await db.rpc('get_ocupacion_mes', {
+  // Primero obtenemos ocupación
+  const { data: ocData } = await db.rpc('get_ocupacion_mes', {
     p_doctor_id: DOCTOR_ID,
     p_anio: anio,
     p_mes: mes
   })
-  if (error || !data) return
+  // Luego contamos slots por día para saber cuáles tienen horario
+  const primerDia = `${anio}-${String(mes).padStart(2,'0')}-01`
+  const ultimoDia = new Date(anio, mes, 0).toISOString().split('T')[0]
+  const { data: hrData } = await db
+    .from('horario_regular')
+    .select('dia_semana')
+    .eq('doctor_id', DOCTOR_ID)
+  const diasConHorario = new Set((hrData || []).map(r => r.dia_semana))
+ 
   ocupacionMes = {}
-  data.forEach(row => {
-    ocupacionMes[row.dia] = parseFloat(row.ocupacion)
+  if (!ocData) return
+  ocData.forEach(row => {
+    const fecha = new Date(row.dia + 'T12:00:00')
+    const diaSemana = fecha.getDay() === 0 ? 7 : fecha.getDay() // 1=Lun..7=Dom
+    if (!diasConHorario.has(diaSemana)) {
+      ocupacionMes[row.dia] = null  // sin horario → gris
+    } else {
+      ocupacionMes[row.dia] = parseFloat(row.ocupacion)
+    }
   })
 }
  
@@ -1012,11 +1030,14 @@ function renderFormCal() {
     const isPast = new Date(dateStr) < new Date(today.toDateString())
     const isSel = formData.date === dateStr
     const ocup = ocupacionMes[dateStr]
-    let availClass = 'avail-green'
-    if (ocup === undefined) availClass = 'avail-red'
-    else if (ocup >= 0.8) availClass = 'avail-red'
-    else if (ocup >= 0.5) availClass = 'avail-orange'
-    else if (ocup >= 0.2) availClass = 'avail-yellow'
+    let availClass = 'avail-gray'  // sin datos = gris por default
+    if (ocup !== undefined) {
+      if (ocup === null) availClass = 'avail-gray'
+      else if (ocup === 0) availClass = 'avail-green'
+      else if (ocup < 0.5) availClass = 'avail-yellow'
+      else if (ocup < 0.8) availClass = 'avail-orange'
+      else availClass = 'avail-red'
+    }
     html += `<button class="cal-day ${isSel ? 'selected-day' : (isPast ? '' : availClass)}" ${isPast ? 'disabled' : ''} onclick="seleccionarFecha('${dateStr}')">${day}</button>`
   }
   document.getElementById('form-cal-days').innerHTML = html
@@ -1300,3 +1321,4 @@ window.addEventListener('load', () => { renderPerfil() })
  
 </body>
 </html>
+ 
