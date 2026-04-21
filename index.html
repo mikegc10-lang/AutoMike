@@ -700,17 +700,106 @@ let currentPageCalDate = new Date()
 let calFilter = 'all'
 let editingId = null
  
-const availData = {
-  garcia: { '2026-04-07':'green','2026-04-08':'green','2026-04-09':'yellow','2026-04-10':'red','2026-04-11':'green','2026-04-14':'orange','2026-04-15':'green','2026-04-16':'yellow','2026-04-17':'green','2026-04-22':'green','2026-04-23':'orange','2026-04-24':'green','2026-04-25':'yellow','2026-04-28':'green','2026-04-29':'green' },
-  lopez:  { '2026-04-07':'yellow','2026-04-08':'orange','2026-04-09':'green','2026-04-10':'green','2026-04-11':'red','2026-04-14':'green','2026-04-15':'yellow','2026-04-16':'green','2026-04-17':'orange','2026-04-22':'green','2026-04-23':'green','2026-04-24':'yellow','2026-04-25':'green','2026-04-28':'orange','2026-04-29':'green' }
-}
-const timeSlots = ['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','16:00','16:30','17:00','17:30','18:00']
+// ID del doctor — fijo hasta que exista login del doctor
+const DOCTOR_ID = 'fb1753ef-8ab6-4f6d-9f64-4c6ed7e2b690'
+ 
+// Cache de disponibilidad cargada desde Supabase
+let ocupacionMes = {}   // { 'YYYY-MM-DD': 0.0–1.0 }
+let slotsDisponibles = [] // array de { slot_inicio, slot_fin } para la fecha seleccionada
  
 // ========== INIT ==========
-window.onload = () => {
+window.onload = async () => {
+  await cargarDoctorPerfil()
+  await cargarCitas()
+  renderHistorial()
+  await cargarOcupacionMes(currentFormCalDate.getFullYear(), currentFormCalDate.getMonth() + 1)
+  renderFormCal()
+  // Realtime: escuchar cambios en citas
+  db.channel('citas-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'citas' }, async () => {
+      await cargarCitas()
+      await cargarOcupacionMes(currentFormCalDate.getFullYear(), currentFormCalDate.getMonth() + 1)
+      renderFormCal()
+    })
+    .subscribe()
+}
+ 
+// ========== CARGAR PERFIL DOCTOR ==========
+async function cargarDoctorPerfil() {
+  const { data, error } = await db
+    .from('doctores')
+    .select('encabezado, nombre, apellido_paterno, especialidad, frase, telefono, linkedin, instagram, facebook')
+    .eq('id', DOCTOR_ID)
+    .single()
+  if (error || !data) return
+  // Encabezado en topbar
+  const enc = document.getElementById('topbar-encabezado')
+  if (enc) enc.textContent = data.encabezado || ''
+  // Datos en página Acerca del doctor
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el && val) el.textContent = val }
+  setEl('cv-nombre', `Dr. ${data.nombre} ${data.apellido_paterno}`)
+  setEl('cv-especialidad', data.especialidad ? data.especialidad.join(', ') : '')
+  setEl('cv-frase', data.frase ? `"${data.frase}"` : '')
+  setEl('cv-telefono', data.telefono || '')
+  // Redes sociales
+  const redes = { linkedin: data.linkedin, instagram: data.instagram, facebook: data.facebook }
+  Object.entries(redes).forEach(([red, url]) => {
+    const btn = document.getElementById(`btn-${red}`)
+    if (btn) {
+      if (url) { btn.href = url; btn.style.display = 'inline-flex' }
+      else btn.style.display = 'none'
+    }
+  })
+}
+ 
+// ========== CARGAR CITAS DESDE SUPABASE ==========
+async function cargarCitas() {
+  const { data: { user } } = await db.auth.getUser()
+  if (!user) return
+  const { data, error } = await db
+    .from('citas')
+    .select('id, fecha, hora_inicio, hora_termino, status, motivo, servicio_id, servicios(nombre)')
+    .eq('paciente_id', user.id)
+    .order('fecha', { ascending: true })
+  if (error || !data) return
+  const hoy = new Date().toISOString().split('T')[0]
+  appointments = data.map(c => ({
+    id:           c.id,
+    service:      c.servicios?.nombre || 'Consulta',
+    collaborator: 'Dr. Miguel García',
+    date:         c.fecha,
+    time:         c.hora_inicio?.slice(0,5) || '',
+    status:       c.status,
+    motivo:       c.motivo || '',
+    past:         c.fecha < hoy || c.status === 'completada'
+  }))
   renderAppointments()
   renderHistorial()
-  renderFormCal()
+}
+ 
+// ========== CARGAR OCUPACIÓN DEL MES ==========
+async function cargarOcupacionMes(anio, mes) {
+  const { data, error } = await db.rpc('get_ocupacion_mes', {
+    p_doctor_id: DOCTOR_ID,
+    p_anio: anio,
+    p_mes: mes
+  })
+  if (error || !data) return
+  ocupacionMes = {}
+  data.forEach(row => {
+    ocupacionMes[row.dia] = parseFloat(row.ocupacion)
+  })
+}
+ 
+// ========== CARGAR SLOTS DE UN DÍA ==========
+async function cargarSlotsDia(fecha) {
+  const { data, error } = await db.rpc('get_disponibilidad', {
+    p_doctor_id: DOCTOR_ID,
+    p_fecha: fecha,
+    p_duracion: 60
+  })
+  if (error || !data) { slotsDisponibles = []; return }
+  slotsDisponibles = data
 }
  
 // ========== THEME ==========
@@ -770,11 +859,13 @@ function solicitarCancelacion(id) {
   document.getElementById('popup-cancelar').classList.add('open')
 }
  
-function confirmarCancelacion() {
-  appointments = appointments.filter(a => a.id !== cancelandoId)
+async function confirmarCancelacion() {
+  if (!cancelandoId) return
+  const { error } = await db.from('citas').update({ status: 'cancelada' }).eq('id', cancelandoId)
   cancelandoId = null
   cerrarPopup()
-  renderAppointments()
+  if (error) { showToast('Error al cancelar: ' + error.message); return }
+  await cargarCitas()
   showToast('Cita cancelada')
 }
  
@@ -918,39 +1009,48 @@ function renderFormCal() {
   for (let i = 0; i < firstDay; i++) html += '<button class="cal-day" disabled></button>'
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
-    const avail = getAvailability(dateStr)
     const isPast = new Date(dateStr) < new Date(today.toDateString())
     const isSel = formData.date === dateStr
-    html += `<button class="cal-day ${isSel ? 'selected-day' : (isPast ? '' : 'avail-'+avail)}" ${isPast ? 'disabled' : ''} onclick="selectFormDate('${dateStr}')">${day}</button>`
+    const ocup = ocupacionMes[dateStr]
+    let availClass = 'avail-green'
+    if (ocup === undefined) availClass = 'avail-red'
+    else if (ocup >= 0.8) availClass = 'avail-red'
+    else if (ocup >= 0.5) availClass = 'avail-orange'
+    else if (ocup >= 0.2) availClass = 'avail-yellow'
+    html += `<button class="cal-day ${isSel ? 'selected-day' : (isPast ? '' : availClass)}" ${isPast ? 'disabled' : ''} onclick="seleccionarFecha('${dateStr}')">${day}</button>`
   }
   document.getElementById('form-cal-days').innerHTML = html
 }
+ 
 function changeFormCal(dir) {
   currentFormCalDate = new Date(currentFormCalDate.getFullYear(), currentFormCalDate.getMonth()+dir, 1)
-  renderFormCal()
+  cargarOcupacionMes(currentFormCalDate.getFullYear(), currentFormCalDate.getMonth()+1).then(() => renderFormCal())
 }
-function getAvailability(dateStr) {
-  const rank = { green:0, yellow:1, orange:2, red:3 }
-  const g = availData.garcia[dateStr] || 'green'
-  const l = availData.lopez[dateStr] || 'green'
-  return Object.keys(rank).find(r => rank[r] === Math.round((rank[g]+rank[l])/2)) || 'green'
-}
-function selectFormDate(dateStr) {
+ 
+async function seleccionarFecha(dateStr) {
   formData.date = dateStr; formData.time = ''
   renderFormCal()
-  renderTimeSlots(dateStr)
+  document.getElementById('time-section').style.display = 'none'
+  document.getElementById('time-slots-grid').innerHTML = '<div style="font-size:13px;color:var(--text3);padding:8px 0;">Cargando horarios...</div>'
   document.getElementById('time-section').style.display = 'block'
+  await cargarSlotsDia(dateStr)
+  renderTimeSlots()
 }
-function renderTimeSlots(dateStr) {
-  const taken = appointments.filter(a => a.date === dateStr && a.id !== editingId).map(a => a.time)
-  document.getElementById('time-slots-grid').innerHTML = timeSlots.map(t => {
-    const isTaken = taken.includes(t)
-    const isSel = formData.time === t
-    return `<button class="time-slot ${isSel ? 'selected' : ''}" ${isTaken ? 'disabled' : ''} onclick="selectTime('${t}')">${t}</button>`
+ 
+function renderTimeSlots() {
+  if (slotsDisponibles.length === 0) {
+    document.getElementById('time-slots-grid').innerHTML = '<div style="font-size:13px;color:var(--text3);padding:8px 0;">Sin horarios disponibles este día.</div>'
+    return
+  }
+  document.getElementById('time-slots-grid').innerHTML = slotsDisponibles.map(s => {
+    const hora = s.slot_inicio.slice(0,5)
+    const isSel = formData.time === hora
+    return `<button class="time-slot ${isSel ? 'selected' : ''}" onclick="selectTime('${hora}')">${hora}</button>`
   }).join('')
 }
+ 
 function selectTime(t) {
-  formData.time = t; renderTimeSlots(formData.date)
+  formData.time = t; renderTimeSlots()
 }
  
 // ========== CONFIRMAR ==========
@@ -963,24 +1063,49 @@ function buildConfirmDetails() {
     <div class="confirm-row"><span class="confirm-label">Fecha</span><span class="confirm-value">${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}</span></div>
     <div class="confirm-row"><span class="confirm-label">Hora</span><span class="confirm-value">${formData.time}</span></div>`
   const rec = 'Llegue 10 minutos antes de su cita. Traiga identificación oficial y, en caso de tener estudios previos, por favor llévelos consigo.'
-  if (rec) {
-    document.getElementById('recomendaciones-box').style.display = 'block'
-    document.getElementById('recomendaciones-texto').textContent = rec
-  }
+  document.getElementById('recomendaciones-box').style.display = 'block'
+  document.getElementById('recomendaciones-texto').textContent = rec
 }
  
-function finishBooking() {
+async function finishBooking() {
   formData.motivo = document.getElementById('f-motivo').value.trim()
+  const { data: { user } } = await db.auth.getUser()
+  if (!user) { showToast('Debes iniciar sesión'); return }
+ 
   if (editingId) {
-    const idx = appointments.findIndex(a => a.id === editingId)
-    if (idx >= 0) appointments[idx] = { ...appointments[idx], service:formData.service, collaborator:formData.collaborator, date:formData.date, time:formData.time }
+    // Modificar cita existente
+    const { error } = await db.from('citas').update({
+      fecha:        formData.date,
+      hora_inicio:  formData.time + ':00',
+      hora_termino: calcHoraTermino(formData.time, formData.serviceDuration || 60),
+      motivo:       formData.motivo
+    }).eq('id', editingId)
+    if (error) { showToast('Error al modificar: ' + error.message); return }
     showToast('✅ Cita modificada')
   } else {
-    appointments.push({ id:Date.now(), service:formData.service, collaborator:formData.collaborator, date:formData.date, time:formData.time, status:'agendada', past:false, motivo:formData.motivo })
+    // Nueva cita
+    const { error } = await db.from('citas').insert({
+      paciente_id:  user.id,
+      doctor_id:    DOCTOR_ID,
+      fecha:        formData.date,
+      hora_inicio:  formData.time + ':00',
+      hora_termino: calcHoraTermino(formData.time, formData.serviceDuration || 60),
+      motivo:       formData.motivo,
+      status:       'agendada'
+    })
+    if (error) { showToast('Error al agendar: ' + error.message); return }
     showToast('✅ ¡Cita agendada!')
   }
   closeModal()
-  renderAppointments()
+  await cargarCitas()
+  await cargarOcupacionMes(currentFormCalDate.getFullYear(), currentFormCalDate.getMonth()+1)
+  renderFormCal()
+}
+ 
+function calcHoraTermino(horaInicio, duracionMin) {
+  const [h, m] = horaInicio.split(':').map(Number)
+  const total = h * 60 + m + parseInt(duracionMin)
+  return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}:00`
 }
  
 // ========== PERFIL CONFIG ==========
@@ -1175,4 +1300,3 @@ window.addEventListener('load', () => { renderPerfil() })
  
 </body>
 </html>
- 
